@@ -124,7 +124,7 @@ export default function Home() {
       {/* Top Navbar */}
       <header className="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-24 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center">
             {/* Scaled Crisp Logo */}
             <img
               src="/logo.png"
@@ -425,7 +425,7 @@ export default function Home() {
                 <select
                   value={wallType}
                   onChange={(e) => setWallType(e.target.value as "brick" | "block")}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-blue-500 bg-slate-950 border-slate-800 text-white"
                 >
                   <option value="brick">රතු ගඩොල් (9" Brick Wall)</option>
                   <option value="block">සිමෙන්ති බ්ලොක් (4" Block)</option>
@@ -479,7 +479,7 @@ export default function Home() {
                 <select
                   value={tileSize}
                   onChange={(e) => setTileSize(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-blue-500 bg-slate-950 border-slate-800 text-white"
                 >
                   <option value="2x2">2ft x 2ft (Standard)</option>
                   <option value="2x1">2ft x 1ft</option>
