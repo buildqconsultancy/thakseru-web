@@ -123,13 +123,13 @@ export default function Home() {
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-sky-500 selection:text-white">
       {/* Top Navbar */}
       <header className="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 h-24 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* Logo Image */}
+            {/* Scaled Crisp Logo */}
             <img
               src="/logo.png"
-              alt="thakseru.lk logo"
-              className="h-12 w-auto object-contain drop-shadow-[0_0_12px_rgba(56,189,248,0.3)]"
+              alt="තක්සේරු.lk"
+              className="h-14 sm:h-16 md:h-20 w-auto object-contain drop-shadow-[0_0_15px_rgba(56,189,248,0.4)]"
             />
           </div>
           <a
