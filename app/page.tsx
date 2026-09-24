@@ -16,13 +16,18 @@ interface OpeningRow {
   count: string;
 }
 
+interface RoomRow {
+  id: number;
+  length: string;
+  width: string;
+  height: string;
+}
+
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"brick" | "concrete" | "tile">("brick");
+  const [activeTab, setActiveTab] = useState<"tile" | "brick" | "concrete">("tile");
 
   // ----------------- CONCRETE CALCULATOR STATE -----------------
   const [concreteElement, setConcreteElement] = useState<"slab" | "column" | "footing" | "beam">("slab");
-  
-  // Slab & Beams
   const [slabLength, setSlabLength] = useState("");
   const [slabWidth, setSlabWidth] = useState("");
   const [slabThickness, setSlabThickness] = useState("");
@@ -31,13 +36,11 @@ export default function Home() {
   const [beamWidth, setBeamWidth] = useState("");
   const [beamDepth, setBeamDepth] = useState("");
 
-  // Column / Footing / Beam
   const [elemLength, setElemLength] = useState("");
   const [elemWidth, setElemWidth] = useState("");
   const [elemDepth, setElemDepth] = useState("");
   const [elemCount, setElemCount] = useState("");
 
-  // Mix & Wastage
   const [concreteRatio, setConcreteRatio] = useState<"1:1.5:3" | "1:2:4" | "1:3:6">("1:2:4");
   const [addWastage, setAddWastage] = useState(false);
 
@@ -50,16 +53,19 @@ export default function Home() {
   const [windows, setWindows] = useState<OpeningRow[]>([]);
 
   // ----------------- TILE & PAINT STATE -----------------
-  const [roomLength, setRoomLength] = useState("");
-  const [roomWidth, setRoomWidth] = useState("");
-  const [wallHeight, setWallHeight] = useState("");
+  const [rooms, setRooms] = useState<RoomRow[]>([
+    { id: 1, length: "", width: "", height: "" },
+  ]);
   const [tileSize, setTileSize] = useState("2x2");
   
   // Skirting
   const [includeSkirting, setIncludeSkirting] = useState(false);
-  const [skirtingHeight, setSkirtingHeight] = useState("4"); // inches
+  const [skirtingHeight, setSkirtingHeight] = useState("4");
 
-  // Tile/Paint Openings Deduction
+  // New room preparation (Filler & Putty)
+  const [isNewRoom, setIsNewRoom] = useState(false);
+
+  // Openings Deductions
   const [tileDoors, setTileDoors] = useState<OpeningRow[]>([]);
   const [tileWindows, setTileWindows] = useState<OpeningRow[]>([]);
 
@@ -68,7 +74,6 @@ export default function Home() {
   // Concrete Calculation
   const calcConcrete = () => {
     let totalWetVol = 0;
-
     if (concreteElement === "slab") {
       const sl = parseFloat(slabLength) || 0;
       const sw = parseFloat(slabWidth) || 0;
@@ -82,32 +87,19 @@ export default function Home() {
         totalWetVol += bl * bw * bd;
       }
     } else {
-      // Column, Footing, Beam
       const l = parseFloat(elemLength) || 0;
-      const w = (parseFloat(elemWidth) || 0) / 12; // width in inches converted to feet
-      const d = (parseFloat(elemDepth) || 0) / 12; // depth in inches converted to feet
+      const w = (parseFloat(elemWidth) || 0) / 12;
+      const d = (parseFloat(elemDepth) || 0) / 12;
       const count = parseFloat(elemCount) || 0;
       totalWetVol = l * w * d * count;
     }
 
     if (totalWetVol === 0) return { cement: 0, sand: "0.00", metal: "0.00", wetVol: "0.0" };
 
-    const wastageMultiplier = addWastage ? 1.05 : 1.0;
-    const dryVol = totalWetVol * 1.54 * wastageMultiplier;
-
-    let cRatio = 1;
-    let sRatio = 2;
-    let mRatio = 4;
-
-    if (concreteRatio === "1:1.5:3") {
-      cRatio = 1;
-      sRatio = 1.5;
-      mRatio = 3;
-    } else if (concreteRatio === "1:3:6") {
-      cRatio = 1;
-      sRatio = 3;
-      mRatio = 6;
-    }
+    const dryVol = totalWetVol * 1.54 * (addWastage ? 1.05 : 1.0);
+    let cRatio = 1, sRatio = 2, mRatio = 4;
+    if (concreteRatio === "1:1.5:3") { cRatio = 1; sRatio = 1.5; mRatio = 3; }
+    else if (concreteRatio === "1:3:6") { cRatio = 1; sRatio = 3; mRatio = 6; }
 
     const totalParts = cRatio + sRatio + mRatio;
     const cementBags = ((dryVol * cRatio) / totalParts) / 1.25;
@@ -137,38 +129,26 @@ export default function Home() {
     walls.forEach((w) => {
       const l = parseFloat(w.length) || 0;
       const h = parseFloat(w.height) || 0;
-      if (l > 0 && h > 0) {
-        grossArea += w.isGable ? 0.5 * l * h : l * h;
-      }
+      if (l > 0 && h > 0) grossArea += w.isGable ? 0.5 * l * h : l * h;
     });
 
     let doorArea = 0;
     doors.forEach((d) => {
-      const w = parseFloat(d.width) || 0;
-      const h = parseFloat(d.height) || 0;
-      const c = parseFloat(d.count) || 0;
-      doorArea += w * h * c;
+      doorArea += (parseFloat(d.width) || 0) * (parseFloat(d.height) || 0) * (parseFloat(d.count) || 0);
     });
 
     let winArea = 0;
     windows.forEach((win) => {
-      const w = parseFloat(win.width) || 0;
-      const h = parseFloat(win.height) || 0;
-      const c = parseFloat(win.count) || 0;
-      winArea += w * h * c;
+      winArea += (parseFloat(win.width) || 0) * (parseFloat(win.height) || 0) * (parseFloat(win.count) || 0);
     });
 
     const totalDeductions = doorArea + winArea;
     const netArea = Math.max(0, grossArea - totalDeductions);
     const squares = netArea / 100;
-
     const rate = materialRates[wallType] || materialRates.brick_9;
     const totalUnits = Math.ceil(squares * rate.unitsPerSqr);
 
-    let cement = "0.0";
-    let sand = "0.00";
-    let zulka = "0.00";
-
+    let cement = "0.0", sand = "0.00", zulka = "0.00";
     if (rate.isAdhesive) {
       zulka = (squares * (rate.zulkaBagsPerSqr || 0)).toFixed(2);
     } else {
@@ -191,57 +171,85 @@ export default function Home() {
 
   // Tile & Paint Calculation
   const calcTilePaint = () => {
-    const l = parseFloat(roomLength) || 0;
-    const w = parseFloat(roomWidth) || 0;
-    const h = parseFloat(wallHeight) || 0;
+    let totalFloorArea = 0;
+    let totalPerimeter = 0;
+    let grossWallArea = 0;
 
-    // Floor Area
-    const floorArea = l * w;
+    rooms.forEach((r) => {
+      const l = parseFloat(r.length) || 0;
+      const w = parseFloat(r.width) || 0;
+      const h = parseFloat(r.height) || 0;
+
+      if (l > 0 && w > 0) {
+        totalFloorArea += l * w;
+        totalPerimeter += 2 * (l + w);
+        if (h > 0) grossWallArea += 2 * (l + w) * h;
+      }
+    });
+
+    // Deductions
+    let doorWidthTotal = 0;
+    let openingsWallDeduction = 0;
+
+    tileDoors.forEach((d) => {
+      const w = parseFloat(d.width) || 0;
+      const h = parseFloat(d.height) || 0;
+      const c = parseFloat(d.count) || 0;
+      doorWidthTotal += w * c;
+      openingsWallDeduction += w * h * c;
+    });
+
+    tileWindows.forEach((win) => {
+      const w = parseFloat(win.width) || 0;
+      const h = parseFloat(win.height) || 0;
+      const c = parseFloat(win.count) || 0;
+      openingsWallDeduction += w * h * c;
+    });
+
+    // Tile Area Mapping
+    const tileSizesMap: Record<string, { sqft: number; tileLengthFt: number }> = {
+      "2x2": { sqft: 4.0, tileLengthFt: 2.0 },
+      "2x4": { sqft: 8.0, tileLengthFt: 4.0 },
+      "1x2": { sqft: 2.0, tileLengthFt: 2.0 },
+      "1x1": { sqft: 1.0, tileLengthFt: 1.0 },
+      "8x12": { sqft: 0.667, tileLengthFt: 1.0 },
+      "8x8": { sqft: 0.444, tileLengthFt: 0.667 },
+    };
+
+    const selectedTile = tileSizesMap[tileSize] || tileSizesMap["2x2"];
+
+    // Floor Tiles with 10% wastage
+    const floorTilesNeeded = totalFloorArea > 0 ? Math.ceil((totalFloorArea * 1.1) / selectedTile.sqft) : 0;
 
     // Skirting calculation
-    let skirtingSqft = 0;
-    let doorWidthTotal = 0;
-    tileDoors.forEach((d) => {
-      doorWidthTotal += (parseFloat(d.width) || 0) * (parseFloat(d.count) || 0);
-    });
-
-    if (includeSkirting && l > 0 && w > 0) {
-      const perimeter = Math.max(0, 2 * (l + w) - doorWidthTotal);
-      const skH = (parseFloat(skirtingHeight) || 4) / 12; // to feet
-      skirtingSqft = perimeter * skH;
+    let netSkirtingPerimeter = 0;
+    let skirtingTilesNeeded = 0;
+    if (includeSkirting && totalPerimeter > 0) {
+      netSkirtingPerimeter = Math.max(0, totalPerimeter - doorWidthTotal);
+      const piecesPerTileLength = Math.max(1, Math.floor(12 / (parseFloat(skirtingHeight) || 4)));
+      skirtingTilesNeeded = Math.ceil(((netSkirtingPerimeter * 1.1) / selectedTile.tileLengthFt) / piecesPerTileLength);
     }
 
-    const totalTileArea = (floorArea + skirtingSqft) * 1.1; // 10% wastage
+    // Net Wall Area for Painting
+    const netWallArea = Math.max(0, grossWallArea - openingsWallDeduction);
 
-    let tileSqft = 4;
-    if (tileSize === "1x1") tileSqft = 1;
-    if (tileSize === "2x1") tileSqft = 2;
-
-    const tilesNeeded = totalTileArea > 0 ? Math.ceil(totalTileArea / tileSqft) : 0;
-
-    // Paint Calculation (Internal 4 walls)
-    let grossWallArea = 0;
-    if (l > 0 && w > 0 && h > 0) {
-      grossWallArea = 2 * (l + w) * h;
-    }
-
-    let openingsDeduction = 0;
-    tileDoors.forEach((d) => {
-      openingsDeduction += (parseFloat(d.width) || 0) * (parseFloat(d.height) || 0) * (parseFloat(d.count) || 0);
-    });
-    tileWindows.forEach((win) => {
-      openingsDeduction += (parseFloat(win.width) || 0) * (parseFloat(win.height) || 0) * (parseFloat(win.count) || 0);
-    });
-
-    const netWallArea = Math.max(0, grossWallArea - openingsDeduction);
-    // Coverage approx 120 sq.ft per liter for 2 coats
+    // Coverage standards:
+    // Emulsion: 120 sq.ft/L for 2 coats
+    // Wall Filler: 140 sq.ft/L for 1 coat
+    // Wall Putty: approx 10 sq.ft per kg (2 coats) -> 200 sq.ft per 20kg bag
     const paintLiters = netWallArea > 0 ? Math.ceil(netWallArea / 120) : 0;
+    const fillerLiters = netWallArea > 0 ? Math.ceil(netWallArea / 140) : 0;
+    const puttyBags = netWallArea > 0 ? Math.ceil(netWallArea / 200) : 0;
 
     return {
-      floorArea: floorArea.toFixed(1),
+      floorArea: totalFloorArea.toFixed(1),
       netWallArea: netWallArea.toFixed(1),
-      tilesNeeded,
+      floorTilesNeeded,
+      skirtingTilesNeeded,
+      netSkirtingPerimeter: netSkirtingPerimeter.toFixed(1),
       paintLiters,
+      fillerLiters,
+      puttyBags,
     };
   };
 
@@ -318,8 +326,7 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Package 1 */}
-          <div className="bg-slate-900/90 border border-sky-500/40 rounded-3xl p-7 shadow-xl relative overflow-hidden flex flex-col justify-between">
+          <div className="bg-slate-900/90 border border-sky-500/40 rounded-3xl p-7 shadow-xl flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-start mb-4">
                 <span className="bg-sky-500/10 text-sky-400 border border-sky-500/30 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
@@ -349,8 +356,7 @@ export default function Home() {
             </a>
           </div>
 
-          {/* Package 2 */}
-          <div className="bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-3xl p-7 shadow-xl relative overflow-hidden flex flex-col justify-between">
+          <div className="bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-3xl p-7 shadow-xl flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-start mb-4">
                 <span className="bg-slate-800 text-slate-300 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
@@ -392,6 +398,16 @@ export default function Home() {
         {/* Tab Controls */}
         <div className="grid grid-cols-3 gap-2 bg-slate-900/90 border border-slate-800 p-1.5 rounded-2xl max-w-lg mx-auto mb-8">
           <button
+            onClick={() => setActiveTab("tile")}
+            className={`py-2.5 text-xs md:text-sm font-bold rounded-xl transition-all ${
+              activeTab === "tile"
+                ? "bg-sky-500 text-slate-950 shadow-md"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            ටයිල් සහ තීන්ත
+          </button>
+          <button
             onClick={() => setActiveTab("brick")}
             className={`py-2.5 text-xs md:text-sm font-bold rounded-xl transition-all ${
               activeTab === "brick"
@@ -411,19 +427,320 @@ export default function Home() {
           >
             Concrete Calculator
           </button>
-          <button
-            onClick={() => setActiveTab("tile")}
-            className={`py-2.5 text-xs md:text-sm font-bold rounded-xl transition-all ${
-              activeTab === "tile"
-                ? "bg-sky-500 text-slate-950 shadow-md"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            ටයිල් සහ තීන්ත
-          </button>
         </div>
 
-        {/* ---------------- 1. BRICK & BLOCK ESTIMATOR ---------------- */}
+        {/* ---------------- 1. TILE & PAINT CALCULATOR ---------------- */}
+        {activeTab === "tile" && (
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl">
+            <div className="border-b border-slate-800 pb-4 mb-6">
+              <h3 className="font-bold text-xl text-white">ටයිල් සහ තීන්ත</h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                කාමර මිනුම්, Skirting ටයිල්, දොර ජනෙල් අඩු කිරීම් සහ Wall Putty/Filler සහිත ගණනය කිරීම
+              </p>
+            </div>
+
+            {/* Tile Size Selection */}
+            <div className="mb-6">
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">ටයිල් ප්‍රමාණය (Tile Size)</label>
+              <select
+                value={tileSize}
+                onChange={(e) => setTileSize(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+              >
+                <option value="2x2">2ft x 2ft (600 x 600 mm) - Standard Floor Tile</option>
+                <option value="2x4">2ft x 4ft (600 x 1200 mm) - Large Format Tile</option>
+                <option value="1x2">1ft x 2ft (300 x 600 mm) - Wall / Floor Tile</option>
+                <option value="1x1">1ft x 1ft (300 x 300 mm) - Bathroom / Outdoor Tile</option>
+                <option value="8x12">8" x 12" (200 x 300 mm) - Wall Tile</option>
+                <option value="8x8">8" x 8" (200 x 200 mm) - Small Bathroom Tile</option>
+              </select>
+            </div>
+
+            {/* Dynamic Rooms Section */}
+            <div className="mb-6 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80">
+              <div className="flex justify-between items-center mb-3 border-b border-slate-800 pb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                  Rooms (කාමර මිනුම් - අඩි වලින්)
+                </span>
+                <button
+                  onClick={() => setRooms([...rooms, { id: Date.now(), length: "", width: "", height: "" }])}
+                  className="bg-slate-800 hover:bg-sky-500 hover:text-slate-950 text-sky-400 text-xs font-bold px-3 py-1 rounded-lg transition"
+                >
+                  + Add Room
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {rooms.map((r, idx) => (
+                  <div key={r.id} className="flex flex-wrap items-center gap-2 bg-slate-900 p-3 rounded-xl border border-slate-800 text-sm">
+                    <span className="text-xs font-bold text-slate-400 w-16">Room {idx + 1}</span>
+                    <input
+                      type="number"
+                      placeholder="දිග (e.g. 15)"
+                      value={r.length}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setRooms(rooms.map((item) => (item.id === r.id ? { ...item, length: val } : item)));
+                      }}
+                      className="w-24 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500"
+                    />
+                    <input
+                      type="number"
+                      placeholder="පළල (e.g. 12)"
+                      value={r.width}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setRooms(rooms.map((item) => (item.id === r.id ? { ...item, width: val } : item)));
+                      }}
+                      className="w-24 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500"
+                    />
+                    <input
+                      type="number"
+                      placeholder="උස (e.g. 10)"
+                      value={r.height}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setRooms(rooms.map((item) => (item.id === r.id ? { ...item, height: val } : item)));
+                      }}
+                      className="w-24 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500"
+                    />
+                    {rooms.length > 1 && (
+                      <button
+                        onClick={() => setRooms(rooms.filter((item) => item.id !== r.id))}
+                        className="bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white px-2 py-1 rounded text-xs ml-auto transition"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Skirting & New Room Options */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* Skirting Option */}
+              <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={includeSkirting}
+                    onChange={(e) => setIncludeSkirting(e.target.checked)}
+                    className="w-4 h-4 rounded text-sky-500 bg-slate-900 border-slate-700"
+                  />
+                  <span className="text-sm font-bold text-slate-200">ස්කර්ටින් (Skirting) එකතු කරන්න</span>
+                </label>
+
+                {includeSkirting && (
+                  <div className="mt-3 pt-3 border-t border-slate-800 flex items-center gap-2">
+                    <span className="text-xs text-slate-400">ස්කර්ටින් උස:</span>
+                    <select
+                      value={skirtingHeight}
+                      onChange={(e) => setSkirtingHeight(e.target.value)}
+                      className="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-sky-500"
+                    >
+                      <option value="3">3" (අඟල් 3)</option>
+                      <option value="4">4" (අඟල් 4 - Standard)</option>
+                      <option value="5">5" (අඟල් 5)</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* New Room Putty & Filler Option */}
+              <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={isNewRoom}
+                    onChange={(e) => setIsNewRoom(e.target.checked)}
+                    className="w-4 h-4 rounded text-sky-500 bg-slate-900 border-slate-700"
+                  />
+                  <span className="text-sm font-bold text-slate-200">අලුත් බිත්තියක් (New Plaster Wall)</span>
+                </label>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  තීන්ත ආලේපනයට පෙර අවශ්‍ය Wall Filler සහ Wall Putty ප්‍රමාණ ද ගණනය වේ.
+                </p>
+              </div>
+            </div>
+
+            {/* Deductions Section */}
+            <div className="mb-6 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80 space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                  දොර සහ ජනෙල් අඩු කිරීම් (Paint & Skirting Deductions)
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setTileDoors([...tileDoors, { id: Date.now(), width: "", height: "", count: "1" }])}
+                    className="bg-slate-800 hover:bg-sky-500 hover:text-slate-950 text-sky-400 text-xs font-bold px-2.5 py-1 rounded-lg transition"
+                  >
+                    + Door
+                  </button>
+                  <button
+                    onClick={() => setTileWindows([...tileWindows, { id: Date.now(), width: "", height: "", count: "1" }])}
+                    className="bg-slate-800 hover:bg-sky-500 hover:text-slate-950 text-sky-400 text-xs font-bold px-2.5 py-1 rounded-lg transition"
+                  >
+                    + Window
+                  </button>
+                </div>
+              </div>
+
+              {tileDoors.length === 0 && tileWindows.length === 0 ? (
+                <p className="text-xs text-slate-500 italic py-1">අඩු කිරීමට දොර හෝ ජනෙල් තිබේ නම් + Door හෝ + Window ක්ලික් කරන්න</p>
+              ) : (
+                <div className="space-y-2">
+                  {tileDoors.map((d, idx) => (
+                    <div key={d.id} className="flex flex-wrap items-center gap-2 bg-slate-900 p-2 rounded-xl border border-slate-800 text-xs">
+                      <span className="text-slate-400 font-bold w-14">Door {idx + 1}</span>
+                      <input
+                        type="number"
+                        placeholder="පළල (e.g. 3)"
+                        value={d.width}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTileDoors(tileDoors.map((item) => (item.id === d.id ? { ...item, width: val } : item)));
+                        }}
+                        className="w-24 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white"
+                      />
+                      <input
+                        type="number"
+                        placeholder="උස (e.g. 7)"
+                        value={d.height}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTileDoors(tileDoors.map((item) => (item.id === d.id ? { ...item, height: val } : item)));
+                        }}
+                        className="w-24 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white"
+                      />
+                      <input
+                        type="number"
+                        placeholder="ගණන"
+                        value={d.count}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTileDoors(tileDoors.map((item) => (item.id === d.id ? { ...item, count: val } : item)));
+                        }}
+                        className="w-16 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white"
+                      />
+                      <button
+                        onClick={() => setTileDoors(tileDoors.filter((item) => item.id !== d.id))}
+                        className="text-red-400 hover:text-white px-2 py-1 ml-auto"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+
+                  {tileWindows.map((win, idx) => (
+                    <div key={win.id} className="flex flex-wrap items-center gap-2 bg-slate-900 p-2 rounded-xl border border-slate-800 text-xs">
+                      <span className="text-slate-400 font-bold w-14">Win {idx + 1}</span>
+                      <input
+                        type="number"
+                        placeholder="පළල (e.g. 4)"
+                        value={win.width}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTileWindows(tileWindows.map((item) => (item.id === win.id ? { ...item, width: val } : item)));
+                        }}
+                        className="w-24 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white"
+                      />
+                      <input
+                        type="number"
+                        placeholder="උස (e.g. 4)"
+                        value={win.height}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTileWindows(tileWindows.map((item) => (item.id === win.id ? { ...item, height: val } : item)));
+                        }}
+                        className="w-24 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white"
+                      />
+                      <input
+                        type="number"
+                        placeholder="ගණන"
+                        value={win.count}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTileWindows(tileWindows.map((item) => (item.id === win.id ? { ...item, count: val } : item)));
+                        }}
+                        className="w-16 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white"
+                      />
+                      <button
+                        onClick={() => setTileWindows(tileWindows.filter((item) => item.id !== win.id))}
+                        className="text-red-400 hover:text-white px-2 py-1 ml-auto"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Results Grid */}
+            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">
+                අවශ්‍ය ප්‍රමාණ (10% අපතේ යාම් සහිතව):
+              </span>
+
+              {/* Main Quantities */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-center">
+                <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                  <div className="text-2xl md:text-3xl font-black text-sky-400">{tileResult.floorArea}</div>
+                  <div className="text-xs text-slate-400 font-medium mt-1">Floor Area (Sq. Ft)</div>
+                </div>
+
+                <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                  <div className="text-2xl md:text-3xl font-black text-sky-400">{tileResult.floorTilesNeeded}</div>
+                  <div className="text-xs text-slate-400 font-medium mt-1">Floor Tiles (Pcs)</div>
+                </div>
+
+                {includeSkirting ? (
+                  <div className="bg-slate-900 border border-amber-500/30 p-4 rounded-xl">
+                    <div className="text-2xl md:text-3xl font-black text-amber-400">{tileResult.skirtingTilesNeeded}</div>
+                    <div className="text-xs text-amber-300/80 font-medium mt-1">Skirting Tiles (Pcs)</div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">{tileResult.netSkirtingPerimeter} Linear ft</div>
+                  </div>
+                ) : (
+                  <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                    <div className="text-2xl md:text-3xl font-black text-sky-400">{tileResult.paintLiters}</div>
+                    <div className="text-xs text-slate-400 font-medium mt-1">Emulsion Paint (Liters)</div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">2 Coats</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Extra Paint / Preparation Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center pt-2">
+                {includeSkirting && (
+                  <div className="bg-slate-900/80 border border-slate-800 p-3.5 rounded-xl">
+                    <div className="text-xl font-bold text-sky-400">{tileResult.paintLiters} L</div>
+                    <div className="text-xs text-slate-400 font-medium mt-0.5">Emulsion Paint (2 Coats)</div>
+                  </div>
+                )}
+
+                {isNewRoom && (
+                  <>
+                    <div className="bg-slate-900/80 border border-slate-800 p-3.5 rounded-xl">
+                      <div className="text-xl font-bold text-emerald-400">{tileResult.fillerLiters} L</div>
+                      <div className="text-xs text-slate-400 font-medium mt-0.5">Wall Filler (1 Coat)</div>
+                    </div>
+                    <div className="bg-slate-900/80 border border-slate-800 p-3.5 rounded-xl">
+                      <div className="text-xl font-bold text-emerald-400">{tileResult.puttyBags} Bags</div>
+                      <div className="text-xs text-slate-400 font-medium mt-0.5">Wall Putty (20kg Bags)</div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <p className="text-[11px] text-slate-500 text-center">
+                *බිත්ති ආලේපන ගණනය කර ඇත්තේ දොර/ජනෙල් වර්ගඵලය අඩු කළ ශුද්ධ බිත්ති වර්ගඵලයට ({tileResult.netWallArea} Sq.ft) අනුකූලවයි.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ---------------- 2. BRICK & BLOCK ESTIMATOR ---------------- */}
         {activeTab === "brick" && (
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl">
             <div className="border-b border-slate-800 pb-4 mb-6">
@@ -433,7 +750,6 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Material & Wall Thickness */}
             <div className="mb-6">
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                 Masonry Material & Wall Thickness (වර්ගය සහ ඝනකම)
@@ -681,7 +997,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* ---------------- 2. CONCRETE MATERIAL CALCULATOR ---------------- */}
+        {/* ---------------- 3. CONCRETE MATERIAL CALCULATOR ---------------- */}
         {activeTab === "concrete" && (
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl">
             <div className="border-b border-slate-800 pb-4 mb-6">
@@ -691,7 +1007,6 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Element Selector Dropdown */}
             <div className="mb-6">
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                 Concrete Element (කොන්ක්‍රීට් අංගය තෝරන්න)
@@ -708,7 +1023,6 @@ export default function Home() {
               </select>
             </div>
 
-            {/* Dynamic Inputs Based on Element */}
             {concreteElement === "slab" ? (
               <div className="mb-6 space-y-4">
                 <span className="block text-sm font-bold text-slate-200">ස්ලැබ් එකේ මිනුම් (Slab Dimensions)</span>
@@ -745,7 +1059,6 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Beams addition */}
                 <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl">
                   <label className="flex items-center gap-2.5 cursor-pointer select-none">
                     <input
@@ -897,232 +1210,6 @@ export default function Home() {
                   <div className="text-xs text-slate-400 font-medium mt-1">3/4" මෙටල් (Cubes)</div>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* ---------------- 3. TILE & PAINT CALCULATOR ---------------- */}
-        {activeTab === "tile" && (
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl">
-            <div className="border-b border-slate-800 pb-4 mb-6">
-              <h3 className="font-bold text-xl text-white">ටයිල් සහ තීන්ත</h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                කාමරයේ මිනුම්, බිත්ති උස, ස්කර්ටින් සහ දොර ජනෙල් අඩු කිරීම් සහිත නිවැරදි ගණනය කිරීම
-              </p>
-            </div>
-
-            {/* Room Dimensions */}
-            <div className="mb-6">
-              <span className="block text-sm font-bold text-slate-200 mb-3">කාමරයේ මිනුම් (Room Dimensions - Feet)</span>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">දිග (අඩි - Length)</label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 15"
-                    value={roomLength}
-                    onChange={(e) => setRoomLength(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">පළල (අඩි - Width)</label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 12"
-                    value={roomWidth}
-                    onChange={(e) => setRoomWidth(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">බිත්ති උස (අඩි - Wall Height)</label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 10"
-                    value={wallHeight}
-                    onChange={(e) => setWallHeight(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">ටයිල් ප්‍රමාණය</label>
-                  <select
-                    value={tileSize}
-                    onChange={(e) => setTileSize(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
-                  >
-                    <option value="2x2">2ft x 2ft (Standard)</option>
-                    <option value="2x1">2ft x 1ft</option>
-                    <option value="1x1">1ft x 1ft</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Skirting Option */}
-            <div className="mb-6 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80">
-              <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={includeSkirting}
-                  onChange={(e) => setIncludeSkirting(e.target.checked)}
-                  className="w-4 h-4 rounded text-sky-500 bg-slate-900 border-slate-700"
-                />
-                <span className="text-sm font-bold text-slate-200">ස්කර්ටින් (Skirting) ටයිල් ප්‍රමාණය එකතු කරන්න</span>
-              </label>
-
-              {includeSkirting && (
-                <div className="mt-3 pt-3 border-t border-slate-800 flex items-center gap-3">
-                  <span className="text-xs text-slate-400 font-semibold">ස්කර්ටින් උස (Inches):</span>
-                  <select
-                    value={skirtingHeight}
-                    onChange={(e) => setSkirtingHeight(e.target.value)}
-                    className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1 text-xs text-white focus:outline-none focus:border-sky-500"
-                  >
-                    <option value="3">3 අඟල් (3 Inches)</option>
-                    <option value="4">4 අඟල් (4 Inches - Standard)</option>
-                    <option value="5">5 අඟල් (5 Inches)</option>
-                  </select>
-                </div>
-              )}
-            </div>
-
-            {/* Deductions for Doors/Windows in Room */}
-            <div className="mb-6 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80 space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                  දොර සහ ජනෙල් අඩු කිරීම් (Paint & Skirting Deductions)
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setTileDoors([...tileDoors, { id: Date.now(), width: "", height: "", count: "1" }])}
-                    className="bg-slate-800 hover:bg-sky-500 hover:text-slate-950 text-sky-400 text-xs font-bold px-2.5 py-1 rounded-lg transition"
-                  >
-                    + Door
-                  </button>
-                  <button
-                    onClick={() => setTileWindows([...tileWindows, { id: Date.now(), width: "", height: "", count: "1" }])}
-                    className="bg-slate-800 hover:bg-sky-500 hover:text-slate-950 text-sky-400 text-xs font-bold px-2.5 py-1 rounded-lg transition"
-                  >
-                    + Window
-                  </button>
-                </div>
-              </div>
-
-              {tileDoors.length === 0 && tileWindows.length === 0 ? (
-                <p className="text-xs text-slate-500 italic py-1">කාමරයේ දොර/ජනෙල් ඇතුළත් කිරීමට ඉහත බොත්තම් භාවිත කරන්න</p>
-              ) : (
-                <div className="space-y-2">
-                  {tileDoors.map((d, idx) => (
-                    <div key={d.id} className="flex flex-wrap items-center gap-2 bg-slate-900 p-2 rounded-xl border border-slate-800 text-xs">
-                      <span className="text-slate-400 font-bold w-14">Door {idx + 1}</span>
-                      <input
-                        type="number"
-                        placeholder="පළල (ft)"
-                        value={d.width}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setTileDoors(tileDoors.map((item) => (item.id === d.id ? { ...item, width: val } : item)));
-                        }}
-                        className="w-20 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white"
-                      />
-                      <input
-                        type="number"
-                        placeholder="උස (ft)"
-                        value={d.height}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setTileDoors(tileDoors.map((item) => (item.id === d.id ? { ...item, height: val } : item)));
-                        }}
-                        className="w-20 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white"
-                      />
-                      <input
-                        type="number"
-                        placeholder="ගණන"
-                        value={d.count}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setTileDoors(tileDoors.map((item) => (item.id === d.id ? { ...item, count: val } : item)));
-                        }}
-                        className="w-16 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white"
-                      />
-                      <button
-                        onClick={() => setTileDoors(tileDoors.filter((item) => item.id !== d.id))}
-                        className="text-red-400 hover:text-white px-2 py-1 ml-auto"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-
-                  {tileWindows.map((win, idx) => (
-                    <div key={win.id} className="flex flex-wrap items-center gap-2 bg-slate-900 p-2 rounded-xl border border-slate-800 text-xs">
-                      <span className="text-slate-400 font-bold w-14">Win {idx + 1}</span>
-                      <input
-                        type="number"
-                        placeholder="පළල (ft)"
-                        value={win.width}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setTileWindows(tileWindows.map((item) => (item.id === win.id ? { ...item, width: val } : item)));
-                        }}
-                        className="w-20 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white"
-                      />
-                      <input
-                        type="number"
-                        placeholder="උස (ft)"
-                        value={win.height}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setTileWindows(tileWindows.map((item) => (item.id === win.id ? { ...item, height: val } : item)));
-                        }}
-                        className="w-20 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white"
-                      />
-                      <input
-                        type="number"
-                        placeholder="ගණන"
-                        value={win.count}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setTileWindows(tileWindows.map((item) => (item.id === win.id ? { ...item, count: val } : item)));
-                        }}
-                        className="w-16 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white"
-                      />
-                      <button
-                        onClick={() => setTileWindows(tileWindows.filter((item) => item.id !== win.id))}
-                        className="text-red-400 hover:text-white px-2 py-1 ml-auto"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Results */}
-            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">
-                අවශ්‍ය ප්‍රමාණ (10% අපතේ යාම් සහිතව):
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-                <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-                  <div className="text-2xl md:text-3xl font-black text-sky-400">{tileResult.floorArea}</div>
-                  <div className="text-xs text-slate-400 font-medium mt-1">බිම වර්ග අඩි (Floor Sq.Ft)</div>
-                </div>
-                <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-                  <div className="text-2xl md:text-3xl font-black text-sky-400">{tileResult.tilesNeeded}</div>
-                  <div className="text-xs text-slate-400 font-medium mt-1">ටයිල් කැට (Pcs)</div>
-                </div>
-                <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-                  <div className="text-2xl md:text-3xl font-black text-sky-400">{tileResult.paintLiters}</div>
-                  <div className="text-xs text-slate-400 font-medium mt-1">බිත්ති තීන්ත ලීටර් (Liters)</div>
-                </div>
-              </div>
-              <p className="text-[11px] text-slate-500 text-center">
-                *බිත්ති තීන්ත ප්‍රමාණය ගණනය කර ඇත්තේ දොර/ජනෙල් වර්ගඵලය අඩු කළ ශුද්ධ බිත්ති වර්ගඵලයට ({tileResult.netWallArea} Sq.ft) ආලේපන වට 2ක් (2 coats) සඳහායි.
-              </p>
             </div>
           </div>
         )}
