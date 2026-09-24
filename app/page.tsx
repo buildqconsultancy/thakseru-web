@@ -259,19 +259,19 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-sky-500 selection:text-white">
-      {/* Top Navbar with Super Prominent Logo */}
+     {/* Top Navbar with Ultra Large Logo */}
       <header className="border-b border-slate-800/80 bg-slate-950/95 backdrop-blur-md sticky top-0 z-50 py-3">
-        <div className="max-w-6xl mx-auto px-4 h-28 sm:h-32 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 h-56 flex items-center justify-between">
           <div className="flex items-center">
             <img
               src="/logo.png"
               alt="තක්සේරු.lk"
-              className="h-24 sm:h-28 md:h-32 w-auto max-w-[320px] sm:max-w-[400px] object-contain drop-shadow-[0_0_28px_rgba(56,189,248,0.65)] transition-transform hover:scale-105 duration-200"
+              className="h-48 w-auto max-w-[480px] object-contain drop-shadow-[0_0_35px_rgba(56,189,248,0.7)] transition-transform hover:scale-105 duration-200"
             />
           </div>
           <a
             href="#boq-packages"
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white px-5 py-3 rounded-xl text-sm font-bold shadow-lg shadow-sky-500/25 transition-all duration-200"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white px-6 py-3.5 rounded-xl text-base font-bold shadow-lg shadow-sky-500/25 transition-all duration-200"
           >
             <span>Certified BOQ Packages</span>
           </a>
